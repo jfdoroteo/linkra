@@ -1,7 +1,3 @@
--- ============================================================
--- LINKRA DATABASE v2
--- Import in phpMyAdmin → linkra_db → Import
--- ============================================================
 CREATE DATABASE IF NOT EXISTS linkra_db CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE linkra_db;
 
