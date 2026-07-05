@@ -1,0 +1,74 @@
+<?php require_once $_SERVER['DOCUMENT_ROOT'].'/linkra/partials/nav-creator.php'; ?>
+<div class="page-body">
+<?php
+require_once $_SERVER['DOCUMENT_ROOT'].'/linkra/partials/video-embed.php';
+$q        = clean($conn, $_GET['q']        ?? '');
+$platform = clean($conn, $_GET['platform'] ?? '');
+$category = clean($conn, $_GET['category'] ?? '');
+
+$where = "p.status='open'";
+if ($q)        $where .= " AND p.title LIKE '%$q%'";
+if ($platform) $where .= " AND p.platform='$platform'";
+if ($category) $where .= " AND p.category='$category'";
+
+$camps = $conn->query("SELECT p.*,b.company_name,b.industry,
+    (SELECT COUNT(*) FROM submissions WHERE project_id=p.id) subs,
+    (SELECT COUNT(*) FROM submissions WHERE project_id=p.id AND creator_id={$user['id']}) mine
+    FROM projects p JOIN businesses b ON b.user_id=p.business_id
+    WHERE $where ORDER BY p.created_at DESC");
+?>
+<div class="page-header">
+  <div><div class="page-heading">Browse Campaigns</div><div class="page-sub">Find an open campaign and submit your content.</div></div>
+</div>
+<div class="filter-bar">
+  <form method="GET" style="display:flex;gap:10px;flex-wrap:wrap;flex:1">
+    <input type="text" name="q" class="form-control" placeholder="Search campaigns..." value="<?=htmlspecialchars($q)?>" style="max-width:240px">
+    <select name="platform" class="form-control" style="max-width:180px" onchange="this.form.submit()">
+      <option value="">All platforms</option>
+      <?php foreach(['tiktok'=>'TikTok','reels'=>'Instagram Reels','shorts'=>'YouTube Shorts','facebook'=>'Facebook','x'=>'X (Twitter)','all'=>'All platforms only'] as $k=>$v): ?>
+      <option value="<?=$k?>" <?=$platform===$k?'selected':''?>><?=$v?></option>
+      <?php endforeach; ?>
+    </select>
+    <select name="category" class="form-control" style="max-width:180px" onchange="this.form.submit()">
+      <option value="">All categories</option>
+      <?php foreach(['Food','Fashion','Technology','Lifestyle','Fitness','Beauty','Travel','Entertainment','Other'] as $c): ?>
+      <option value="<?=$c?>" <?=$category===$c?'selected':''?>><?=$c?></option>
+      <?php endforeach; ?>
+    </select>
+    <button type="submit" class="btn btn-secondary"><i class="ti ti-search"></i>Search</button>
+    <?php if($q||$platform||$category): ?><a href="/linkra/creator/browse.php" class="btn btn-ghost">Clear</a><?php endif; ?>
+  </form>
+</div>
+<?php if($camps->num_rows===0): ?>
+<div class="empty-state"><i class="ti ti-briefcase"></i><h3>No campaigns found</h3><p>Try adjusting your filters or check back later for new campaigns.</p></div>
+<?php else: ?>
+<div class="feed-grid">
+<?php while($p=$camps->fetch_assoc()):
+  $pct = $p['overall_budget']>0 ? min(100,round((($p['overall_budget']-$p['budget_remaining'])/$p['overall_budget'])*100)) : 0;
+?>
+<a href="/linkra/creator/campaign.php?id=<?=$p['id']?>" class="campaign-card">
+  <div class="campaign-thumb">
+    <?php if($p['thumbnail']): ?><img src="/linkra/assets/<?=htmlspecialchars($p['thumbnail'])?>" alt=""><?php else: ?><i class="ti ti-photo" style="font-size:36px;color:var(--text3)"></i><?php endif; ?>
+  </div>
+  <div class="campaign-card-body">
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <span class="badge badge-<?=$p['platform']?>"><?=strtoupper($p['platform'])==='ALL'?'All platforms':strtoupper($p['platform'])?></span>
+      <?php if($p['category']): ?><span class="badge badge-<?=strtolower($p['category'])?>"><?=$p['category']?></span><?php endif; ?>
+      <?php if($p['mine']>0): ?><span class="badge badge-approved"><i class="ti ti-check"></i>Submitted</span><?php endif; ?>
+    </div>
+    <div class="campaign-title"><?=htmlspecialchars($p['title'])?></div>
+    <div style="font-size:12px;color:var(--text3);margin-bottom:10px"><i class="ti ti-building-store" style="margin-right:4px"></i><?=htmlspecialchars($p['company_name'])?></div>
+    <div class="budget-bar-wrap"><div class="budget-bar" style="width:<?=$pct?>%"></div></div>
+    <div class="budget-labels mb-12"><span><?=peso($p['budget_remaining'])?> left</span><span><?=peso($p['overall_budget'])?></span></div>
+    <div class="campaign-meta">
+      <span class="meta-item"><i class="ti ti-coin"></i><?=peso($p['payout_per_1k'])?>/1K views</span>
+      <span class="meta-item"><i class="ti ti-send"></i><?=$p['subs']?> submission<?=$p['subs']!=1?'s':''?></span>
+      <?php if($p['deadline']): ?><span class="meta-item"><i class="ti ti-calendar"></i><?=date('M j',strtotime($p['deadline']))?></span><?php endif; ?>
+    </div>
+  </div>
+</a>
+<?php endwhile; ?>
+</div>
+<?php endif; ?>
+</div>
+<?php require_once $_SERVER['DOCUMENT_ROOT'].'/linkra/partials/footer.php'; ?>
